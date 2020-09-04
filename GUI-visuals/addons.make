@@ -1,0 +1,3 @@
+ofxAubio
+ofxFft
+ofxGui
