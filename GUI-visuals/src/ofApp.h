@@ -80,8 +80,8 @@ class ofApp : public ofBaseApp{
         vector<float> drawBuffer, middleBuffer, audioBuffer;
     
         // Visualisation stuff
-        vector<Layer> myLayer;
+        vector<Layer> allLayers;
         ofxPanel visGui;
         ofxButton addLayerButton;
-    
+        void addLayerButtonPressed();
 };

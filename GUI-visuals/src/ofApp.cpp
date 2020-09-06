@@ -72,8 +72,16 @@ void ofApp::setup(){
     // ----------------
     visGui.setup("Visualisation GUI", "settings.xml", 500, 500);
 //    visGui.setup(start, 500);
+    addLayerButton.addListener(this, &ofApp::addLayerButtonPressed);
     visGui.add(addLayerButton.setup("Add layer"));
     
+}
+
+//--------------------------------------------------------------
+void ofApp::addLayerButtonPressed(){
+    Layer newLayer;
+    newLayer.setup(beat.bpm);
+    allLayers.push_back(newLayer);
 }
 
 
@@ -101,18 +109,18 @@ void ofApp::plot(vector<float>& buffer, float scale, float offset) {
 //--------------------------------------------------------------
 void ofApp::update(){
     onset.setThreshold(onsetThreshold);
+    
+    for(int i = 0; i < allLayers.size(); i++) {
+        allLayers[i].update(gotOnset);
+    }
 }
 
 void ofApp::draw_visuals(){
     ofSetColor(ofColor::blue);
     ofFill();
     
-    int n_blocks = 20;
-    float width = 30.0;
-    float neg_width = ofGetWidth()/n_blocks;
-
-    for(int i = 0; i<n_blocks; i++) {
-        ofDrawRectangle(i*(width+neg_width), 0, width, ofGetHeight());
+    for(int i = 0; i < allLayers.size(); i++) {
+        allLayers[i].draw(gotBeat);
     }
     
     // DRAW GUI

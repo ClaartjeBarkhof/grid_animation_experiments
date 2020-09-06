@@ -6,11 +6,14 @@ class Layer {
 
     public:
 
-    void setup();
-    void update();
-    void draw();
+    void setup(int bpm);
+    void update(bool gotonset);
+    void draw(bool gotbeat);
 
     Layer();  
-    private: 
+    private:
+        bool start_drawing;
+        vector<vector<float>> myRects;
+        ofColor layerColor;
 };
 #endif
