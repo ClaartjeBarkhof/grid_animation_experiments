@@ -22,6 +22,15 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
     
-    Layer myLayer;
+        void setup_layers(vector<Layer>);
+    
+    vector<Layer> allLayers1, allLayers2, allLayers3, allLayers4;
+    int nLayers1, nLayers2, nLayers3, nLayers4;
+    
+    ofFbo fbo1, fbo2, fbo3, fbo4;
+    
+    float balance;
+    
+    
 		
 };

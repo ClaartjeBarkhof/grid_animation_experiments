@@ -86,9 +86,6 @@ void Entity::draw() {
     ofEnableBlendMode(blend_modes[blend_mode_i]);
     ofSetColor(color_rect);
     
-//    float min_half_w = scaled_width / 2.0;
-//    float min_half_h = scaled_height / 2.0;
-//
     ofDrawRectangle(x, y, scaled_width, scaled_height);
     
     for(int i = 0; i < n_lines; i++) {
