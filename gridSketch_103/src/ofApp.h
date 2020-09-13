@@ -1,36 +1,25 @@
 #pragma once
 
 #include "ofMain.h"
-#include "layer.h"
+#include "layer_103.h"
 
 class ofApp : public ofBaseApp{
 
 	public:
 		void setup();
+        void setup_103();
 		void update();
+        void update_103();
 		void draw();
+        void draw_103();
+        void clear_setup_103();
 
 		void keyPressed(int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void mouseEntered(int x, int y);
-		void mouseExited(int x, int y);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
+        
+    vector<Layer_103> allLayers1_103, allLayers2_103, allLayers3_103, allLayers4_103;
+    int nLayers1_103, nLayers2_103, nLayers3_103, nLayers4_103;
     
-        void setup_layers(vector<Layer>);
+    ofFbo fbo1_103, fbo2_103, fbo3_103, fbo4_103;
     
-    vector<Layer> allLayers1, allLayers2, allLayers3, allLayers4;
-    int nLayers1, nLayers2, nLayers3, nLayers4;
-    
-    ofFbo fbo1, fbo2, fbo3, fbo4;
-    
-    float balance;
-    
-    
-		
+    ofColor bgColor_103;
 };

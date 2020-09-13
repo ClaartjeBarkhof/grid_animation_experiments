@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ofMain.h"
-#include "entity.h"
+#include "entity_104.h"
 
 class ofApp : public ofBaseApp{
 
@@ -9,20 +9,15 @@ class ofApp : public ofBaseApp{
 		void setup();
 		void update();
 		void draw();
+    
+        void setup_104();
+        void update_104();
+        void draw_104();
+        void clear_setup_104();
 
 		void keyPressed(int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void mouseEntered(int x, int y);
-		void mouseExited(int x, int y);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
     
-    vector<Entity> allEntities;
-    int nEntities;
+    vector<Entity_104> allEntities_104;
+    int nEntities_104;
 		
 };
