@@ -14,30 +14,23 @@ class ofApp : public ofBaseApp{
 
         void update();
         void draw();
-        void draw_visuals();
-    
-        void plot(vector<float>& buffer, float scale, float offset);
+        
+        void draw_VIS();
+        void update_VIS();
+        void setup_VIS();
 
         void keyPressed(int key);
-        void keyReleased(int key);
-        void mouseMoved(int x, int y );
-        void mouseDragged(int x, int y, int button);
-        void mousePressed(int x, int y, int button);
-        void mouseReleased(int x, int y, int button);
-        void windowResized(int w, int h);
-        void dragEvent(ofDragInfo dragInfo);
-        void gotMessage(ofMessage msg);
-
+    
+        void setup_GUI_SOUND();
+        void draw_GUI_SOUND(ofEventArgs & args);
+        void update_GUI_SOUND();
         void audioIn(float * input, int bufferSize, int nChannels);
-        void audioOut();
-
+        void audioOut(float * output, int bufferSize, int nChannel);
+        void plot(vector<float>& buffer, float scale, float offset);    
         void onsetEvent(float & time);
         void beatEvent(float & time);
 
     private:
-        // AUBIO
-        
-
         // PITCH
         ofxAubioPitch pitch;
         ofxPanel pitchGui;
@@ -48,12 +41,14 @@ class ofApp : public ofBaseApp{
         ofxAubioBeat beat;
         ofxPanel beatGui;
         bool gotBeat;
+        bool drawnBeatGUI, drawnBeatVIS;
         ofxFloatSlider bpm;
 
         // ONSET
         ofxAubioOnset onset;
         ofxPanel onsetGui;
         bool gotOnset;
+        bool drawnOnsetGUI, drawnOnsetVIS;
         ofxFloatSlider onsetThreshold;
         ofxFloatSlider onsetNovelty;
         ofxFloatSlider onsetThresholdedNovelty;
@@ -79,9 +74,29 @@ class ofApp : public ofBaseApp{
         vector<float> drawBins, middleBins, audioBins;
         vector<float> drawBuffer, middleBuffer, audioBuffer;
     
+        // SOUND STREAM
+        ofSoundStream soundStream, outputStream;
+        vector<float> samplesLeft;
+        vector<float> samplesRight;
+    
         // Visualisation stuff
         vector<Layer> allLayers;
         ofxPanel visGui;
         ofxButton addLayerButton;
+        ofxButton deleteAllLayersButton;
+        
+        ofxButton selectLayerType1;
+        ofxButton selectLayerType2;
+        ofxButton selectLayerType3;
+        
+        ofParameter<bool> filled;
+        
         void addLayerButtonPressed();
+        void deleteAllLayersButtonPressed();
+        void selectLayerType1Pressed();
+        void selectLayerType2Pressed();
+        void selectLayerType3Pressed();
+        ofParameter<int> nCols;
+        ofParameter<int> nRows;
+        int layerType;
 };

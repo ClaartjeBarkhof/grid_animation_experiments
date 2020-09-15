@@ -57,12 +57,12 @@ void ofApp_102::draw(){
     }
     
     // Draw some bit strings on screen for testing
-    string info = "fps: " + ofToString(ofGetFrameRate(),2);
-    ofDisableBlendMode();
-    ofSetColor(255, 255, 255);
-    ofDrawBitmapString(info, 10, 20);
-    
-    ofDrawBitmapString("Press 'r' for random restart!" , 10, 60);
+//    string info = "fps: " + ofToString(ofGetFrameRate(),2);
+//    ofDisableBlendMode();
+//    ofSetColor(255, 255, 255);
+//    ofDrawBitmapString(info, 10, 20);
+//    
+//    ofDrawBitmapString("Press 'r' for random restart!" , 10, 60);
 }
 
 //--------------------------------------------------------------

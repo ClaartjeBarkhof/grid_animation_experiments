@@ -12,7 +12,7 @@ void ofApp_101::update(){
 
 void ofApp_101::draw(){
     draw_101();
-    drawInfo();
+//    drawInfo();
 }
 
 void ofApp_101::update_101(){
