@@ -1,3 +1,4 @@
 ofxAubio
+ofxBeat
 ofxFft
 ofxGui

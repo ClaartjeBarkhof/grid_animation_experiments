@@ -2,9 +2,12 @@
 
 #include "ofMain.h"
 #include "ofxAubio.h"
+#include "ofxBeat.h"
 #include "ofxGui.h"
 #include "ofxFft.h"
 #include "Layer.h"
+
+enum {MIC_SPEAKER, SOUNDCARD_SPEAKER};
 
 class ofApp : public ofBaseApp{
 
@@ -16,6 +19,7 @@ class ofApp : public ofBaseApp{
         void draw();
         
         void draw_VIS();
+        void drawLayerTypeX(int X);
         void update_VIS();
         void setup_VIS();
 
@@ -43,6 +47,9 @@ class ofApp : public ofBaseApp{
         bool gotBeat;
         bool drawnBeatGUI, drawnBeatVIS;
         ofxFloatSlider bpm;
+    
+        // ofxbeat
+        ofxBeat beat_ofx;
 
         // ONSET
         ofxAubioOnset onset;
@@ -76,27 +83,41 @@ class ofApp : public ofBaseApp{
     
         // SOUND STREAM
         ofSoundStream soundStream, outputStream;
+        // For passing 2 channel sound directly to speakers
         vector<float> samplesLeft;
         vector<float> samplesRight;
+        
+        int mode; // MIC_SPEAKER, SOUNDCARD_SPEAKER
     
         // Visualisation stuff
         vector<Layer> allLayers;
         ofxPanel visGui;
         ofxButton addLayerButton;
+        ofxButton addLayerFrontButton;
         ofxButton deleteAllLayersButton;
+    
+        ofxButton deleteFirstButton;
+        ofxButton deleteLastButton;
         
-        ofxButton selectLayerType1;
-        ofxButton selectLayerType2;
-        ofxButton selectLayerType3;
-        
-        ofParameter<bool> filled;
+        ofParameter<bool> LayerType1;
+        ofParameter<bool> LayerType2;
+        ofParameter<bool> LayerType3;
+        ofParameter<bool> LayerType4;
+        ofParameter<bool> onsetSignalType;
+        ofParameter<bool> beatSignalType;
+        ofParameter<bool> blendModeOn;
+        ofParameter<bool> Subtract;
+    
+        int signalType;
+        int layerType;
         
         void addLayerButtonPressed();
+        void addLayerFrontButtonPressed();
         void deleteAllLayersButtonPressed();
-        void selectLayerType1Pressed();
-        void selectLayerType2Pressed();
-        void selectLayerType3Pressed();
+        void handleSelectedParams();
+        void deleteLastButtonPressed();
+        void deleteFirstButtonPressed();
         ofParameter<int> nCols;
         ofParameter<int> nRows;
-        int layerType;
+        
 };

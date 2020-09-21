@@ -1,29 +1,36 @@
 #include "ofApp.h"
 #include "ofEventUtils.h"
 
+int MIC_IN = 0;
+int SOUND_FLOWER_IN_OUT = 2;
+
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 // MAIN LOOP FUNCTIONS
 //--------------------------------------------------------------
 void ofApp::setup(){
+    mode = MIC_SPEAKER; // available modes MIC_SPEAKER, SOUNDCARD_SPEAKER
     setup_VIS();
     setup_GUI_SOUND();
     
-   // To handle the onset & beat signals
-   // (don't remove the signals before having
-   // drawn them in GUI as well as visuals) --> see update() for logic
-   gotBeat = false;
-   gotOnset = false;
-   drawnOnsetVIS = false;
-   drawnOnsetGUI = false;
-   drawnBeatVIS = false;
-   drawnBeatGUI = false;
+    // To handle the onset & beat signals
+    // (don't remove the signals before having
+    // drawn them in GUI as well as visuals) --> see update() for logic
+    gotBeat = false;
+    gotOnset = false;
+    drawnOnsetVIS = false;
+    drawnOnsetGUI = false;
+    drawnBeatVIS = false;
+    drawnBeatGUI = false;
 }
 
 void ofApp::update(){
     update_VIS();
     update_GUI_SOUND();
     
+    beat_ofx.update(ofGetElapsedTimeMillis());
+    
+    handleSelectedParams();
     if ((gotOnset) && (drawnOnsetVIS) && (drawnOnsetGUI)) {
         gotOnset = false;
     }
@@ -59,16 +66,32 @@ void ofApp::update_VIS(){
 //    cout << "VIS UPDATE" << endl;
     
     for(int i = 0; i < allLayers.size(); i++) {
-        allLayers[i].update(gotOnset);
+        if (allLayers[i].signalType == 0) {
+            allLayers[i].update(gotOnset);
+        } else {
+            allLayers[i].update(gotBeat);
+        }
     }
 }
 
-void ofApp::draw_VIS(){
+void ofApp::drawLayerTypeX(int X) {
+    for(int i = 0; i < allLayers.size(); i++) {
+        if (allLayers[i].layerType == X) {
+            allLayers[i].draw();
+        }
+    }
+}
+
+void ofApp::draw_VIS() {
 //    cout << "VIS DRAW" << endl;
     ofBackground(0, 0, 0);
     
     ofSetColor(ofColor::blue);
     ofFill();
+    
+//    drawLayerTypeX(1);
+//    drawLayerTypeX(2);
+//    drawLayerTypeX(3);
     
     for(int i = 0; i < allLayers.size(); i++) {
         allLayers[i].draw();
@@ -92,12 +115,30 @@ void ofApp::setup_VIS(){
 //--------------------------------------------------------------
 void ofApp::addLayerButtonPressed(){
     Layer newLayer;
-    newLayer.setup(layerType, nCols, nRows);
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract); // 0 for onset, 1 for beat
     allLayers.push_back(newLayer);
+}
+
+void ofApp::addLayerFrontButtonPressed(){
+    Layer newLayer;
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract); // 0 for onset, 1 for beat
+    allLayers.insert(allLayers.begin(), newLayer);
 }
 
 void ofApp::deleteAllLayersButtonPressed() {
     allLayers.clear();
+}
+
+void ofApp::deleteFirstButtonPressed() {
+    if (allLayers.size() > 0) {
+        allLayers.erase(allLayers.begin());
+    }
+}
+
+void ofApp::deleteLastButtonPressed() {
+    if (allLayers.size() > 0) {
+        allLayers.pop_back();
+    }
 }
 
 //--------------------------------------------------------------
@@ -105,123 +146,159 @@ void ofApp::deleteAllLayersButtonPressed() {
 // GUI & SOUND
 //-------------------------------------------------------------
 void ofApp::setup_GUI_SOUND() {
-//    cout << "GUI SOUND SET-UP" << endl;
+    //    cout << "GUI SOUND SET-UP" << endl;
     // GLOBALS & SETTINGS
-     plotHeight = 128;
-     bufferSize = 512;
-     ofSetVerticalSync(true);
+    plotHeight = 128;
+    bufferSize = 512;
+    ofSetVerticalSync(true);
 
-     // FAST FOURIER TRANSFORM
-     fft = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
-     
-     // SPECTROGRAM: MATRIX (ofImage) BUFFERSIZE X N_BINS
-     spectrogram.allocate(bufferSize, fft->getBinSize(), OF_IMAGE_GRAYSCALE);
-     spectrogram.setColor(ofColor::black);
+    // FAST FOURIER TRANSFORM
+    fft = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
 
-     // TIME DOMAIN BUFFER
-     drawBuffer.resize(bufferSize);
-     middleBuffer.resize(bufferSize);
-     audioBuffer.resize(bufferSize);
-     
-     // FREQ DOMAIN BINS
-     drawBins.resize(fft->getBinSize());
-     middleBins.resize(fft->getBinSize());
-     audioBins.resize(fft->getBinSize());
+    // SPECTROGRAM: MATRIX (ofImage) BUFFERSIZE X N_BINS
+    spectrogram.allocate(bufferSize, fft->getBinSize(), OF_IMAGE_GRAYSCALE);
+    spectrogram.setColor(ofColor::black);
 
-     // ONSET
-     onset.setup();
-     ofAddListener(onset.gotOnset, this, &ofApp::onsetEvent);
+    // TIME DOMAIN BUFFER
+    drawBuffer.resize(bufferSize);
+    middleBuffer.resize(bufferSize);
+    audioBuffer.resize(bufferSize);
 
-     // PITCH
-     pitch.setup();
+    // FREQ DOMAIN BINS
+    drawBins.resize(fft->getBinSize());
+    middleBins.resize(fft->getBinSize());
+    audioBins.resize(fft->getBinSize());
 
-     // BEAT
-     beat.setup();
-     ofAddListener(beat.gotBeat, this, &ofApp::beatEvent);
+    // ONSET
+    onset.setup();
+    ofAddListener(onset.gotOnset, this, &ofApp::onsetEvent);
 
-     // MEL BANDS
-     bands.setup();
+    // PITCH
+    pitch.setup();
 
-     // SOUNDSTREAM
-     samplesLeft.resize(512);
-     samplesRight.resize(512);
+    // BEAT
+    beat.setup();
+    ofAddListener(beat.gotBeat, this, &ofApp::beatEvent);
+
+    // MEL BANDS
+    bands.setup();
+
+    // SOUNDSTREAM
+    samplesLeft.resize(512);
+    samplesRight.resize(512);
+
+    // Arguments: nOutputs, nInputs, sampleRate, bufferSize, nBuffers
+    // If you want to list devices:  (microphone is standard)
+    //     ofSoundStream soundStream;
+
+    // Input stream
+    soundStream.printDeviceList(); // check this if doesn't work
     
-     // Arguments: nOutputs, nInputs, sampleRate, bufferSize, nBuffers
-     // If you want to list devices:  (microphone is standard)
-//     ofSoundStream soundStream;
-     
-     // Input stream
-     soundStream.printDeviceList(); // just good to know
-     soundStream.setDeviceID(2); // sound flower
-     soundStream.setup(this, 0, 2, 44100, 512, 4); // 2 channels? perhaps set to one.
-     soundStream.setInput(this);
-     
-     // Output stream (to speakers)
-     outputStream.setDeviceID(1); // default mac speakers
-     outputStream.setup(this, 2, 0, 44100, 512, 4);
-     outputStream.setOutput(this);
-    
+    if (mode == MIC_SPEAKER) {
+         soundStream.setDeviceID(MIC_IN); // microphone
+         soundStream.setup(this, 0, 1, 44100, 512, 4); // two channel microphone in
+    } else {
+         soundStream.setDeviceID(SOUND_FLOWER_IN_OUT); // sound flower
+         soundStream.setup(this, 0, 2, 44100, 512, 4); // two channel in from soundcard via soundflower
+    }
+    soundStream.setInput(this);
+
+    // Output stream (to speakers)
+    outputStream.setDeviceID(1); // default mac output
+    outputStream.setup(this, 2, 0, 44100, 512, 4);
+    outputStream.setOutput(this);
+
     cout << "num input channels:" << soundStream.getNumInputChannels() << endl;
 
-    
-//     ofSoundStreamListDevices();
-//     ofSoundStreamSetup(0, 2, 44100, 512, 4);
-     
-     
-     // ----------------
-     // GUI
-     // ----------------
-     int start = 0;
-     beatGui.setup("ofxAubioBeat", "settings.xml", start + 10, 10);
-     beatGui.add(bpm.setup( "bpm", 0, 0, 250));
+    // ----------------
+    // GUI
+    // ----------------
+    int start = 0;
+    beatGui.setup("ofxAubioBeat", "settings.xml", start + 10, 10);
+    beatGui.add(bpm.setup( "bpm", 0, 0, 250));
 
-     start += 250;
-     onsetGui.setup("ofxAubioOnset", "settings.xml", start + 10, 10);
-     onsetGui.add(onsetThreshold.setup( "threshold", 0, 0, 2));
-     onsetGui.add(onsetNovelty.setup( "onset novelty", 0, 0, 10000));
-     onsetGui.add(onsetThresholdedNovelty.setup( "thr. novelty", 0, -1000, 1000));
-     onsetThreshold = onset.threshold; // set default value
+    start += 250;
+    onsetGui.setup("ofxAubioOnset", "settings.xml", start + 10, 10);
+    onsetGui.add(onsetThreshold.setup( "threshold", 0, 0, 2));
+    onsetGui.add(onsetNovelty.setup( "onset novelty", 0, 0, 10000));
+    onsetGui.add(onsetThresholdedNovelty.setup( "thr. novelty", 0, -1000, 1000));
+    onsetThreshold = onset.threshold; // set default value
 
-     start += 250;
-     pitchGui.setup("ofxAubioPitch", "settings.xml", start + 10, 10);
-     pitchGui.add(midiPitch.setup( "midi pitch", 0, 0, 128));
-     pitchGui.add(pitchConfidence.setup( "confidence", 0, 0, 1));
+    start += 250;
+    pitchGui.setup("ofxAubioPitch", "settings.xml", start + 10, 10);
+    pitchGui.add(midiPitch.setup( "midi pitch", 0, 0, 128));
+    pitchGui.add(pitchConfidence.setup( "confidence", 0, 0, 1));
 
-     bandsGui.setup("ofxAubioMelBands", "settings.xml", start + 10, 115);
-     for (int i = 0; i < 40; i++) {
-         bandPlot.addVertex( 50 + i * 650 / 40., 240 - 100 * bands.energies[i]);
-     }
-     // ----------------
-     // VISUALISATION GUI
-     // ----------------
-     visGui.setup("Visualisation GUI", "settings.xml", 550, 300);
-     addLayerButton.addListener(this, &ofApp::addLayerButtonPressed);
-     selectLayerType1.addListener(this, &ofApp::selectLayerType1Pressed);
-     selectLayerType2.addListener(this, &ofApp::selectLayerType2Pressed);
-     selectLayerType3.addListener(this, &ofApp::selectLayerType3Pressed);
+    bandsGui.setup("ofxAubioMelBands", "settings.xml", start + 10, 115);
+    for (int i = 0; i < 40; i++) {
+     bandPlot.addVertex( 50 + i * 650 / 40., 240 - 100 * bands.energies[i]);
+    }
+    // ----------------
+    // VISUALISATION GUI
+    // ----------------
+    visGui.setup("Visualisation GUI", "settings.xml", 550, 300);
+    addLayerButton.addListener(this, &ofApp::addLayerButtonPressed);
+    addLayerFrontButton.addListener(this, &ofApp::addLayerFrontButtonPressed);
     deleteAllLayersButton.addListener(this, &ofApp::deleteAllLayersButtonPressed);
-     visGui.add(addLayerButton.setup("Add layer"));
-     visGui.add(deleteAllLayersButton.setup("Delete all layers"));
-     visGui.add(selectLayerType1.setup("Layer type 1"));
-     visGui.add(selectLayerType2.setup("Layer type 2"));
-     visGui.add(selectLayerType3.setup("Layer type 3"));
-     visGui.add(filled.set("bFill", true));
-     visGui.add(nCols.set("nCols", 1, 1, 6)); // name, value, min, max
-     visGui.add(nRows.set("nRols", 2, 1, 6));
-     layerType = 1;
+    deleteFirstButton.addListener(this, &ofApp::deleteFirstButtonPressed);
+    deleteLastButton.addListener(this, &ofApp::deleteLastButtonPressed);
+    visGui.add(addLayerButton.setup("Add layer"));
+    visGui.add(addLayerFrontButton.setup("Add layer in front"));
+    visGui.add(deleteAllLayersButton.setup("Delete all layers"));
+    
+    visGui.add(deleteFirstButton.setup("Delete from front"));
+    visGui.add(deleteLastButton.setup("Delete from back"));
+    
+    visGui.add(LayerType1.set("Layer type 1", false));
+    visGui.add(LayerType2.set("Layer type 2", false));
+    visGui.add(LayerType3.set("Layer type 3", true));
+    visGui.add(LayerType4.set("Layer type 4", false));
+    visGui.add(onsetSignalType.set("Signal type onset", true));
+    visGui.add(beatSignalType.set("Signal type beat", false));
+    visGui.add(blendModeOn.set("BlendMode on", false));
+    visGui.add(Subtract.set("Subtract on", false));
+    visGui.add(nCols.set("nCols", 1, 1, 6)); // name, value, min, max
+    visGui.add(nRows.set("nRols", 2, 1, 6));
+    layerType = 3; // set to layer 3 by default
+    signalType = 0; // onset
 }
 
-void ofApp::selectLayerType1Pressed() {
-    cout << "layerType = 1" << endl;
-    layerType = 1;
-}
-void ofApp::selectLayerType2Pressed() {
-    cout << "layerType = 2" << endl;
-    layerType = 2;
-}
-void ofApp::selectLayerType3Pressed() {
-    cout << "layerType = 3" << endl;
-    layerType = 3;
+void ofApp::handleSelectedParams() {
+    // KEEP LAYER TYPES MUTUALLY EXCLUSIVE
+    if ((LayerType1) && !(layerType == 1)) {
+        layerType = 1;
+        LayerType2.set(false);
+        LayerType3.set(false);
+        LayerType4.set(false);
+    }
+    if ((LayerType2) && !(layerType == 2)) {
+        layerType = 2;
+        LayerType1.set(false);
+        LayerType3.set(false);
+        LayerType4.set(false);
+    }
+    if ((LayerType3) && !(layerType == 3)) {
+        layerType = 3;
+        LayerType1.set(false);
+        LayerType2.set(false);
+        LayerType4.set(false);
+    }
+    if ((LayerType4) && !(layerType == 4)) {
+        layerType = 4;
+        LayerType1.set(false);
+        LayerType2.set(false);
+        LayerType3.set(false);
+    }
+        
+    // BEAT ONSET PARAMS MUTUALLY EXCLUSIVE
+    if ((onsetSignalType) && !(signalType == 0)) {
+        signalType = 0;
+        beatSignalType.set(false);
+    }
+    if ((beatSignalType) && !(signalType == 1)) {
+        signalType = 1;
+        onsetSignalType.set(false);
+    }
 }
 
 void ofApp::plot(vector<float>& buffer, float scale, float offset) {
@@ -258,6 +335,25 @@ void ofApp::draw_GUI_SOUND(ofEventArgs & args){
         ofDrawRectangle(90,150,50,50);
 //        gotBeat = false;
     }
+    string kick = "kick: " + ofToString(beat_ofx.kick());
+    string snare = " snare: " + ofToString(beat_ofx.snare());
+    string hihat = " hihat: " + ofToString(beat_ofx.hihat());
+    
+    string m = kick + snare + hihat;
+    ofDrawBitmapString(m, 40, 130);
+    
+    if (beat_ofx.kick() > 0.5) {
+        ofDrawRectangle(40,150,20,20);
+    }
+    
+    if (beat_ofx.snare() > 0.5) {
+        ofDrawRectangle(70,150,20,20);
+    }
+    
+    if (beat_ofx.kick() > 0.5) {
+        ofDrawRectangle(100,150,20,20);
+    }
+    
 
     // update onset info
     if (gotOnset) {
@@ -333,11 +429,24 @@ void ofApp::draw_GUI_SOUND(ofEventArgs & args){
         drawnBeatGUI = true;
     }
     ofSetColor(255, 255, 255);
+    
     string msg1 = "Layer type: " + ofToString(layerType);
+    string s;
+    if (signalType == 0) {
+        s = "onset";
+    } else {
+        s = "beat";
+    }
+    string msg2 = "Signal type: " + s;
+    string msg3 = "Num layers: " + ofToString(allLayers.size());
     ofDrawBitmapString(msg1, 550, 285);
+    ofDrawBitmapString(msg2, 550, 275);
+    ofDrawBitmapString(msg3, 550, 250);
 }
 
 void ofApp::audioIn(float * input, int bufferSize, int nChannels){
+    beat_ofx.audioReceived(input, bufferSize, nChannels);
+    
     for (int i = 0; i < bufferSize; i++) {
         samplesLeft[i] = input[2*i];
         samplesRight[i] = input[2*i+1];
@@ -417,18 +526,17 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
     soundMutex.unlock();
 }
 
-//void audioOut(){
-//
-//}
-
 void ofApp::audioOut(float *output, int bufferSize, int nChannels){
-    for (int i = 0; i < bufferSize; i++) {
-        output[2*i] = samplesLeft[i];
-        output[2*i+1] = samplesRight[i];
+    // Only output sound if channeled from soundcard to this programme
+    // and then to output. Not if sound is picked up from mic. Then
+    // there already is sound.
+    if (mode == SOUNDCARD_SPEAKER) {
+        for (int i = 0; i < bufferSize; i++) {
+            output[2*i] = samplesLeft[i];
+            output[2*i+1] = samplesRight[i];
+        }
     }
 }
-
-
 
 //----
 void ofApp::onsetEvent(float & time) {
