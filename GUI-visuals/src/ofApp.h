@@ -105,8 +105,12 @@ class ofApp : public ofBaseApp{
         ofParameter<bool> LayerType4;
         ofParameter<bool> onsetSignalType;
         ofParameter<bool> beatSignalType;
+        ofParameter<bool> beatSnareSignalType;
+        ofParameter<bool> beatKickSignalType;
+        ofParameter<bool> beatHihatSignalType;
         ofParameter<bool> blendModeOn;
         ofParameter<bool> Subtract;
+        ofParameter<bool> Black;
     
         int signalType;
         int layerType;

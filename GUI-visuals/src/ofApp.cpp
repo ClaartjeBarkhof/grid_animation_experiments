@@ -3,6 +3,8 @@
 
 int MIC_IN = 0;
 int SOUND_FLOWER_IN_OUT = 2;
+int HK_OUT = 0;
+int BUILTIN_OUT = 1;
 
 //--------------------------------------------------------------
 //--------------------------------------------------------------
@@ -63,14 +65,56 @@ float powFreq(float i) {
 // VISUALS
 //--------------------------------------------------------------
 void ofApp::update_VIS(){
-//    cout << "VIS UPDATE" << endl;
     
+    bool gotKick, gotSnare, gotHihat;
+    
+    if (beat_ofx.kick() > 0.5) {
+        gotKick = true;
+    } else {
+        gotKick = false;
+    }
+    
+    if (beat_ofx.snare() > 0.5) {
+        gotSnare = true;
+    } else {
+        gotSnare = false;
+    }
+    
+    if (beat_ofx.hihat() > 0.5) {
+        gotHihat = true;
+    } else {
+        gotHihat = false;
+    }
+    
+    vector<int> erase_layers;
     for(int i = 0; i < allLayers.size(); i++) {
-        if (allLayers[i].signalType == 0) {
-            allLayers[i].update(gotOnset);
+        if (allLayers[i].ready_for_delete) {
+            erase_layers.push_back(i);
         } else {
-            allLayers[i].update(gotBeat);
+            switch (signalType) {
+              case 0:
+                allLayers[i].update(gotOnset);
+                break;
+              case 1:
+                allLayers[i].update(gotBeat);
+                break;
+              case 2:
+                allLayers[i].update(gotSnare);
+                break;
+              case 3:
+                allLayers[i].update(gotKick);
+                break;
+              case 4:
+                allLayers[i].update(gotHihat);
+                break;
+            }
         }
+    }
+    
+    // Delete layers if died out (ready for delete)
+    sort(erase_layers.begin(), erase_layers.end(), greater<int>());
+    for(int i = 0; i<erase_layers.size(); i++) {
+        allLayers.erase(allLayers.begin() + erase_layers[i]);
     }
 }
 
@@ -115,29 +159,34 @@ void ofApp::setup_VIS(){
 //--------------------------------------------------------------
 void ofApp::addLayerButtonPressed(){
     Layer newLayer;
-    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract); // 0 for onset, 1 for beat
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black); // 0 for onset, 1 for beat
     allLayers.push_back(newLayer);
 }
 
 void ofApp::addLayerFrontButtonPressed(){
     Layer newLayer;
-    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract); // 0 for onset, 1 for beat
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black); // 0 for onset, 1 for beat
     allLayers.insert(allLayers.begin(), newLayer);
 }
 
 void ofApp::deleteAllLayersButtonPressed() {
-    allLayers.clear();
+    for(int i = 0; i<allLayers.size(); i++) {
+        allLayers[i].die();
+    }
+//    allLayers.clear();
 }
 
 void ofApp::deleteFirstButtonPressed() {
     if (allLayers.size() > 0) {
-        allLayers.erase(allLayers.begin());
+//        allLayers.erase(allLayers.begin());
+        allLayers.front().die();
     }
 }
 
 void ofApp::deleteLastButtonPressed() {
     if (allLayers.size() > 0) {
-        allLayers.pop_back();
+//        allLayers.pop_back();
+        allLayers.back().die();
     }
 }
 
@@ -199,12 +248,12 @@ void ofApp::setup_GUI_SOUND() {
          soundStream.setup(this, 0, 1, 44100, 512, 4); // two channel microphone in
     } else {
          soundStream.setDeviceID(SOUND_FLOWER_IN_OUT); // sound flower
-         soundStream.setup(this, 0, 2, 44100, 512, 4); // two channel in from soundcard via soundflower
+         soundStream.setup(this, 0, 2, 44100, 512, 4); // two or 1 channel in from soundcard via soundflower
     }
     soundStream.setInput(this);
 
     // Output stream (to speakers)
-    outputStream.setDeviceID(1); // default mac output
+    outputStream.setDeviceID(BUILTIN_OUT); // HK output or BUILTIN_OUT
     outputStream.setup(this, 2, 0, 44100, 512, 4);
     outputStream.setOutput(this);
 
@@ -255,10 +304,17 @@ void ofApp::setup_GUI_SOUND() {
     visGui.add(LayerType4.set("Layer type 4", false));
     visGui.add(onsetSignalType.set("Signal type onset", true));
     visGui.add(beatSignalType.set("Signal type beat", false));
+    
+    
+    visGui.add(beatKickSignalType.set("Signal type kick", false));
+    visGui.add(beatHihatSignalType.set("Signal type hihat", false));
+    visGui.add(beatSnareSignalType.set("Signal type snare", false));
+    
     visGui.add(blendModeOn.set("BlendMode on", false));
     visGui.add(Subtract.set("Subtract on", false));
-    visGui.add(nCols.set("nCols", 1, 1, 6)); // name, value, min, max
-    visGui.add(nRows.set("nRols", 2, 1, 6));
+    visGui.add(Black.set("Black", false));
+    visGui.add(nCols.set("nCols", 1, 1, 16)); // name, value, min, max
+    visGui.add(nRows.set("nRows", 1, 1, 16));
     layerType = 3; // set to layer 3 by default
     signalType = 0; // onset
 }
@@ -294,11 +350,41 @@ void ofApp::handleSelectedParams() {
     if ((onsetSignalType) && !(signalType == 0)) {
         signalType = 0;
         beatSignalType.set(false);
+        beatKickSignalType.set(false);
+        beatHihatSignalType.set(false);
+        beatSnareSignalType.set(false);
     }
     if ((beatSignalType) && !(signalType == 1)) {
         signalType = 1;
         onsetSignalType.set(false);
+        beatKickSignalType.set(false);
+        beatHihatSignalType.set(false);
+        beatSnareSignalType.set(false);
     }
+    if ((beatSnareSignalType) && !(signalType == 2)) {
+        signalType = 2;
+        onsetSignalType.set(false);
+        beatKickSignalType.set(false);
+        beatHihatSignalType.set(false);
+        beatSignalType.set(false);
+    }
+    if ((beatKickSignalType) && !(signalType == 3)) {
+        signalType = 3;
+        onsetSignalType.set(false);
+        beatHihatSignalType.set(false);
+        beatSnareSignalType.set(false);
+        beatSignalType.set(false);
+    }
+    if ((beatHihatSignalType) && !(signalType == 4)) {
+        signalType = 1;
+        onsetSignalType.set(false);
+        beatKickSignalType.set(false);
+        beatSnareSignalType.set(false);
+        beatSignalType.set(false);
+    }
+
+
+    
 }
 
 void ofApp::plot(vector<float>& buffer, float scale, float offset) {

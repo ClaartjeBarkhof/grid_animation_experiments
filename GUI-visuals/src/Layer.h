@@ -7,7 +7,8 @@ class Layer {
 
     public:
 
-    void setup(int layerType_, int nCol_s, int nRows_, int signal_type, bool BlendModeOn, bool Subtract);
+    void setup(int layerType_, int nCol_s, int nRows_, int signal_type,
+               bool BlendModeOn, bool Subtract, bool Black);
     void update(bool signal);
     void draw();
     void draw_1();
@@ -18,6 +19,7 @@ class Layer {
     void update_2(bool signal);
     void update_3(bool signal);
     void update_4(bool signal);
+    void die();
     void setup_layer_2();
     void setup_layer_4();
     void drawSubtracted(float x, float y, float w, float h, float w_s, float h_s);
@@ -32,15 +34,19 @@ class Layer {
     int signalType; // 0 for onset, 1 for beat
     ofBlendMode blendMode;
     float padding_perc;
+    bool dying;
+    bool ready_for_delete;
     
     // LAYER TYPE 1
     float disappear_start_time_1;
     bool disappear_1;
+    float disappear_chance_1;
     vector<int> disappear_vec_1;
     
     // LAYER TYPE 2
     vector<vector<float>> myRects_2;
     float grow_scale_2;
+    vector<float> getNewRect_2();
     
     // LAYER TYPE 3
     vector<vector<float>> myRects_3;

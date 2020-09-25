@@ -3,7 +3,8 @@
 Layer::Layer(){
 }
 
-void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type, bool blendModeOn, bool subtract) {
+void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type,
+                  bool blendModeOn, bool subtract, bool Black) {
     cout << "SETUP LAYER TYPE: " << layerType_ << " nCols: " << nCols_ << " nRows: " << nRows_ << endl;
 
     blend_modes = {OF_BLENDMODE_SUBTRACT, OF_BLENDMODE_MULTIPLY, OF_BLENDMODE_ALPHA, OF_BLENDMODE_SCREEN, OF_BLENDMODE_ADD};
@@ -13,18 +14,16 @@ void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type, bool 
     nCols = nCols_;
     nRows = nRows_;
     disappear_1 = false;
+    dying = false;
+    ready_for_delete = false;
+    disappear_chance_1 = 0.2;
     
     if (blendModeOn) {
         blendMode = blend_modes[(int)ofRandom(blend_modes.size())];
     } else {
         blendMode = OF_BLENDMODE_DISABLED;
     }
-    
-    if (subtract) {
-        blendMode = OF_BLENDMODE_SUBTRACT;
-        layerColor = ofColor(255, 255, 255);
-    }
-    
+
     padding_perc = ofRandom(0.01, 0.05);
     
     if (layerType == 2) {
@@ -36,6 +35,16 @@ void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type, bool 
     
     if (layerType == 4) {
         setup_layer_4();
+    }
+    
+    if (subtract) {
+        blendMode = OF_BLENDMODE_SUBTRACT;
+        layerColor = ofColor(255, 255, 255);
+    }
+    
+    if (Black) {
+        blendMode = OF_BLENDMODE_DISABLED;
+        layerColor = ofColor(0, 0, 0);
     }
     
 }
@@ -66,19 +75,19 @@ void Layer::draw(){
         draw_3();
     }
     if (layerType == 4) {
-           draw_4();
+        draw_4();
     }
 }
 
 void Layer::update_1(bool signal) {
     float disappear_time_s = 0.2;
-    float disappear_chance = 0.2;
+    
     
     if ((signal) && !(disappear_1)) {
         disappear_1 = true;
         disappear_start_time_1 = ofGetElapsedTimef();
         for(int i = 0; i<(nRows*nCols); i++) {
-            if (ofRandom(1.0) < disappear_chance) {
+            if (ofRandom(1.0) < disappear_chance_1) {
                 disappear_vec_1.push_back(i);
             }
         }
@@ -87,6 +96,15 @@ void Layer::update_1(bool signal) {
     if ((ofGetElapsedTimef() - disappear_start_time_1) > disappear_time_s) {
         disappear_1 = false;
         disappear_vec_1.clear();
+    }
+    
+    // Let more and more disappear
+    if (dying) {
+        cout << "disappear_chance_1: " << disappear_chance_1 << endl;
+        disappear_chance_1 += 0.01;
+        if (disappear_chance_1 >= 1.0) {
+            ready_for_delete = true;
+        }
     }
     
     
@@ -127,63 +145,112 @@ void Layer::draw_1() {
     }
 }
 
-void Layer::setup_layer_2() {
-    grow_scale_2 = (0.5*sin(ofGetElapsedTimef()*0.5)) + 1;
-    
-    float step = ofRandom(20, 40);
+void Layer::die() {
+    dying = true;
+}
+
+vector<float> Layer::getNewRect_2() {
     float range = 20;
     float min = 100;
     float dif = 10;
- 
-    int count = 0;
-    while (true) {
-        float small_w = ofRandom(min, min+range);
-        float small_h = ofRandom(min, min+range);
-        float large_w = ofRandom(min+range+dif, min+(range*2)+dif);
-        float large_h = ofRandom(min+range+dif, min+(range*2)+dif);
-        
-        if ((large_w > ofGetWidth()) || (large_h > ofGetHeight())) {
-            break;
-        }
+    
+    float small_w = ofRandom(min, min+range);
+    float small_h = ofRandom(min, min+range);
+    float large_w = ofRandom(min+range+dif, min+(range*2)+dif);
+    float large_h = ofRandom(min+range+dif, min+(range*2)+dif);
+    
+    vector<float> rect{large_w, large_h, small_w, small_h};
+    return rect;
+}
 
-        vector<float> rect = {large_w, large_h, small_w, small_h};
-        myRects_2.push_back(rect);
-        
-        float large_side;
-        if (large_w > large_h) {
-            large_side = large_w;
-        } else {
-            large_side = large_h;
-        }
-        
-        min = large_side + step;
-        range *= 2;
-        dif *= 2;
-        count += 1;
-    }
+void Layer::setup_layer_2( ) {
+    myRects_2.push_back(getNewRect_2());
 }
 
 void Layer::update_2(bool signal) {
-    grow_scale_2 = (0.5*sin(ofGetElapsedTimef())) + 1;
+    // Grow a bit every update (exponentially
+    for(int i = 0; i<myRects_2.size(); i++) {
+        myRects_2[i][0] *= 1.01;
+        myRects_2[i][1] *= 1.01;
+        myRects_2[i][2] *= 1.01;
+        myRects_2[i][3] *= 1.01;
+    }
+    
+    if (myRects_2.size() > 0) {
+        // If last added rect is bigger than init rec, add another
+        if ((myRects_2.back()[2] > 200) && (myRects_2.back()[2] > 200) && (signal) && (!dying)) {
+            cout << "IF 1" << endl;
+            myRects_2.push_back(getNewRect_2());
+        }
+    }
+    
+    
+    if ((myRects_2.size() == 0) && (signal) && (!dying)) {
+        cout << "IF 2" << endl;
+        myRects_2.push_back(getNewRect_2());
+    }
+    
+    
+    // Record which rectangles to erase
+    vector<int> erase_rects;
+    
+    // If last added rect is bigger than screen, remove it
+    for(int i = 0; i<myRects_2.size(); i++) {
+        if ((myRects_2.back()[2] >= ofGetWidth()) && (myRects_2.back()[3] >= ofGetHeight())) {
+            erase_rects.push_back(i);
+        }
+    }
+    
+    // Erase rectangles that became too small
+    sort(erase_rects.begin(), erase_rects.end(), greater<int>());
+    for(int i = 0; i<erase_rects.size(); i++) {
+        myRects_2.erase(myRects_2.begin() + erase_rects[i]);
+    }
+    
+    // If dying and no rects are left, delete the layer
+    if ((dying) && (myRects_2.size() == 0)) {
+        ready_for_delete = true;
+    }
+    
+    cout << "size myrects 2: " << myRects_2.size() << endl;
 }
 
 void Layer::draw_2() {
     float w_col = ofGetWidth() / nCols;
     float h_row = ofGetHeight() / nRows;
-    
+
     for(int r = 0; r<nRows; r++) {
             for(int c = 0; c<nCols; c++) {
                 for(int i = 0; i<myRects_2.size(); i++) {
+                    // large_w, large_h, small_w, small_h
+                    float l_w = myRects_2[i][0];
+                    float l_h = myRects_2[i][1];
+                    float s_w = myRects_2[i][2];
+                    float s_h = myRects_2[i][3];
                     
+                    if (l_w > ofGetWidth()) {
+                        l_w = ofGetWidth();
+                    }
                     
-                    float w_frac = (myRects_2[i][0] * grow_scale_2) / ofGetWidth();
-                    float h_frac = (myRects_2[i][1] * grow_scale_2) / ofGetHeight();
-                    float w_s_frac = (myRects_2[i][2] * grow_scale_2) / ofGetWidth();
-                    float h_s_frac = (myRects_2[i][3] * grow_scale_2) / ofGetHeight();
+                    if (l_h > ofGetHeight()) {
+                        l_h = ofGetHeight();
+                    }
                     
+                    if (s_w > ofGetWidth()) {
+                        s_w = ofGetWidth();
+                    }
                     
-                    float x = (ofGetWidth() / 2) - ((myRects_2[i][0] * grow_scale_2)/2.);
-                    float y = (ofGetHeight() / 2) - ((myRects_2[i][1] * grow_scale_2)/2.);
+                    if (s_h > ofGetHeight()) {
+                        s_h = ofGetHeight();
+                    }
+                    
+                    float w_frac = l_w / ofGetWidth();
+                    float h_frac = l_h / ofGetHeight();
+                    float w_s_frac = s_w / ofGetWidth();
+                    float h_s_frac = s_h / ofGetHeight();
+                    
+                    float x = (ofGetWidth() / 2) - (l_w/2.);
+                    float y = (ofGetHeight() / 2) - (l_h/2.);
                     
                     // Check what percentage the width of the rect is
                     float x_frac = x / ofGetWidth();
@@ -232,7 +299,7 @@ void Layer::update_3(bool signal) {
     float shrink_scale = 0.98;
     
     // If new onset, new rect
-    if (signal) {
+    if ((signal) && (!dying)) {
         vector<float> rect = {0., 0., (float)ofGetWidth(), (float)ofGetHeight()};
         myRects_3.push_back(rect);
     }
@@ -260,6 +327,11 @@ void Layer::update_3(bool signal) {
     sort(erase_rects.begin(), erase_rects.end(), greater<int>());
     for(int i = 0; i<erase_rects.size(); i++) {
         myRects_3.erase(myRects_3.begin() + erase_rects[i]);
+    }
+    
+    // If dying and no rects are left, delete the layer
+    if ((dying) && (myRects_3.size() == 0)) {
+        ready_for_delete = true;
     }
 }
 
@@ -298,7 +370,6 @@ void Layer::setup_layer_4() {
     if (ofRandom(1.0) < 0.5) {
         vertical_4 = true;
     } else {
-        cout << "HORIZONTAL" << endl;
         vertical_4 = false;
     }
     
@@ -315,7 +386,7 @@ void Layer::setup_layer_4() {
 void Layer::update_4(bool signal) {
     vector<int> erase_vec;
     
-    if (signal) {
+    if ((signal) && (!dying)) {
         int lane = (int)ofRandom(num_lanes_4);
         positions_4.push_back(-length_4/2);
         lanes_4.push_back(lane);
@@ -347,7 +418,10 @@ void Layer::update_4(bool signal) {
     }
     
     
-
+    // If dying and no rects are left, delete the layer
+    if ((dying) && (positions_4.size() == 0)) {
+        ready_for_delete = true;
+    }
 }
 
 void Layer::draw_4() {
