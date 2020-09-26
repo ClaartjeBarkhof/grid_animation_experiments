@@ -27,6 +27,7 @@ class ofApp : public ofBaseApp{
     
         void setup_GUI_SOUND();
         void draw_GUI_SOUND(ofEventArgs & args);
+        void drawPlots();
         void update_GUI_SOUND();
         void audioIn(float * input, int bufferSize, int nChannels);
         void audioOut(float * output, int bufferSize, int nChannel);
@@ -90,11 +91,21 @@ class ofApp : public ofBaseApp{
         int mode; // MIC_SPEAKER, SOUNDCARD_SPEAKER
     
         // Visualisation stuff
+        ofFbo fboVis;
+        float fboVisWidth, fboVisHeight;
+        
+        bool backgroundLayer;
+        ofColor backgroundColor;
+    
+//        ofFbo fboGui;
+//        float fboGuiWidth, fboGuiHeight;
+    
         vector<Layer> allLayers;
         ofxPanel visGui;
         ofxButton addLayerButton;
         ofxButton addLayerFrontButton;
         ofxButton deleteAllLayersButton;
+        ofxButton rBackgroundButton;
     
         ofxButton deleteFirstButton;
         ofxButton deleteLastButton;
@@ -116,6 +127,7 @@ class ofApp : public ofBaseApp{
         int layerType;
         
         void addLayerButtonPressed();
+        void rBackgroundButtonPressed();
         void addLayerFrontButtonPressed();
         void deleteAllLayersButtonPressed();
         void handleSelectedParams();

@@ -8,8 +8,9 @@ class Layer {
     public:
 
     void setup(int layerType_, int nCol_s, int nRows_, int signal_type,
-               bool BlendModeOn, bool Subtract, bool Black);
-    void update(bool signal);
+               bool BlendModeOn, bool Subtract, bool Black,
+               float widthScreen, float heightScreen);
+    void update(bool signal, float widthScreen, float heightScreen);
     void draw();
     void draw_1();
     void draw_2();
@@ -26,6 +27,7 @@ class Layer {
     
     // GENERAL / HELPERS
     vector<ofBlendMode> blend_modes;
+    float widthScreen, heightScreen;
     
     // ALL / MULTIPLE LAYER TYPES
     ofColor layerColor;

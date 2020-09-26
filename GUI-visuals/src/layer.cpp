@@ -4,7 +4,7 @@ Layer::Layer(){
 }
 
 void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type,
-                  bool blendModeOn, bool subtract, bool Black) {
+                  bool blendModeOn, bool subtract, bool Black, float widthScreen_, float heightScreen_) {
     cout << "SETUP LAYER TYPE: " << layerType_ << " nCols: " << nCols_ << " nRows: " << nRows_ << endl;
 
     blend_modes = {OF_BLENDMODE_SUBTRACT, OF_BLENDMODE_MULTIPLY, OF_BLENDMODE_ALPHA, OF_BLENDMODE_SCREEN, OF_BLENDMODE_ADD};
@@ -17,6 +17,9 @@ void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type,
     dying = false;
     ready_for_delete = false;
     disappear_chance_1 = 0.2;
+    
+    widthScreen = widthScreen_;
+    heightScreen = heightScreen_;
     
     if (blendModeOn) {
         blendMode = blend_modes[(int)ofRandom(blend_modes.size())];
@@ -49,7 +52,10 @@ void Layer::setup(int layerType_, int nCols_, int nRows_, int signal_type,
     
 }
 
-void Layer::update(bool signal) {
+void Layer::update(bool signal, float widthScreen_, float heightScreen_) {
+    widthScreen = widthScreen_;
+    heightScreen = heightScreen_;
+    
     if (layerType == 1) {
         update_1(signal);
     }
@@ -87,7 +93,10 @@ void Layer::update_1(bool signal) {
         disappear_1 = true;
         disappear_start_time_1 = ofGetElapsedTimef();
         for(int i = 0; i<(nRows*nCols); i++) {
-            if (ofRandom(1.0) < disappear_chance_1) {
+            if ((nCols == 1) && (nRows == 1)) {
+                disappear_vec_1.push_back(i);
+            }
+            else if (ofRandom(1.0) < disappear_chance_1) {
                 disappear_vec_1.push_back(i);
             }
         }
@@ -100,7 +109,7 @@ void Layer::update_1(bool signal) {
     
     // Let more and more disappear
     if (dying) {
-        cout << "disappear_chance_1: " << disappear_chance_1 << endl;
+//        cout << "disappear_chance_1: " << disappear_chance_1 << endl;
         disappear_chance_1 += 0.01;
         if (disappear_chance_1 >= 1.0) {
             ready_for_delete = true;
@@ -113,8 +122,8 @@ void Layer::update_1(bool signal) {
 void Layer::draw_1() {
     
     
-    float padding_w = ofGetWidth() * padding_perc;
-    float padding_h = ofGetHeight() * padding_perc;
+    float padding_w = widthScreen * padding_perc;
+    float padding_h = heightScreen * padding_perc;
     
     ofFill();
     ofSetLineWidth(0);
@@ -126,8 +135,8 @@ void Layer::draw_1() {
         for(int c = 0; c<nCols; c++) {
             // either not disappear at all, or disappear by chance
             if (!(find(disappear_vec_1.begin(), disappear_vec_1.end(), i) != disappear_vec_1.end())) {
-                float w = ofGetWidth() / nCols;
-                float h = ofGetHeight() / nRows;
+                float w = widthScreen / nCols;
+                float h = heightScreen / nRows;
                 
                 float p_w = padding_perc * w;
                 float p_h = padding_perc * h;
@@ -179,14 +188,14 @@ void Layer::update_2(bool signal) {
     if (myRects_2.size() > 0) {
         // If last added rect is bigger than init rec, add another
         if ((myRects_2.back()[2] > 200) && (myRects_2.back()[2] > 200) && (signal) && (!dying)) {
-            cout << "IF 1" << endl;
+//            cout << "IF 1" << endl;
             myRects_2.push_back(getNewRect_2());
         }
     }
     
     
     if ((myRects_2.size() == 0) && (signal) && (!dying)) {
-        cout << "IF 2" << endl;
+//        cout << "IF 2" << endl;
         myRects_2.push_back(getNewRect_2());
     }
     
@@ -196,7 +205,7 @@ void Layer::update_2(bool signal) {
     
     // If last added rect is bigger than screen, remove it
     for(int i = 0; i<myRects_2.size(); i++) {
-        if ((myRects_2.back()[2] >= ofGetWidth()) && (myRects_2.back()[3] >= ofGetHeight())) {
+        if ((myRects_2.back()[2] >= widthScreen) && (myRects_2.back()[3] >= heightScreen)) {
             erase_rects.push_back(i);
         }
     }
@@ -212,12 +221,12 @@ void Layer::update_2(bool signal) {
         ready_for_delete = true;
     }
     
-    cout << "size myrects 2: " << myRects_2.size() << endl;
+//    cout << "size myrects 2: " << myRects_2.size() << endl;
 }
 
 void Layer::draw_2() {
-    float w_col = ofGetWidth() / nCols;
-    float h_row = ofGetHeight() / nRows;
+    float w_col = widthScreen / nCols;
+    float h_row = heightScreen / nRows;
 
     for(int r = 0; r<nRows; r++) {
             for(int c = 0; c<nCols; c++) {
@@ -228,33 +237,33 @@ void Layer::draw_2() {
                     float s_w = myRects_2[i][2];
                     float s_h = myRects_2[i][3];
                     
-                    if (l_w > ofGetWidth()) {
-                        l_w = ofGetWidth();
+                    if (l_w > widthScreen) {
+                        l_w = widthScreen;
                     }
                     
-                    if (l_h > ofGetHeight()) {
-                        l_h = ofGetHeight();
+                    if (l_h > heightScreen) {
+                        l_h = heightScreen;
                     }
                     
-                    if (s_w > ofGetWidth()) {
-                        s_w = ofGetWidth();
+                    if (s_w > widthScreen) {
+                        s_w = widthScreen;
                     }
                     
-                    if (s_h > ofGetHeight()) {
-                        s_h = ofGetHeight();
+                    if (s_h > heightScreen) {
+                        s_h = heightScreen;
                     }
                     
-                    float w_frac = l_w / ofGetWidth();
-                    float h_frac = l_h / ofGetHeight();
-                    float w_s_frac = s_w / ofGetWidth();
-                    float h_s_frac = s_h / ofGetHeight();
+                    float w_frac = l_w / widthScreen;
+                    float h_frac = l_h / heightScreen;
+                    float w_s_frac = s_w / widthScreen;
+                    float h_s_frac = s_h / heightScreen;
                     
-                    float x = (ofGetWidth() / 2) - (l_w/2.);
-                    float y = (ofGetHeight() / 2) - (l_h/2.);
+                    float x = (widthScreen / 2) - (l_w/2.);
+                    float y = (heightScreen / 2) - (l_h/2.);
                     
                     // Check what percentage the width of the rect is
-                    float x_frac = x / ofGetWidth();
-                    float y_frac = y / ofGetHeight();
+                    float x_frac = x / widthScreen;
+                    float y_frac = y / heightScreen;
                     
                     x = (c*w_col) + (x_frac*w_col);
                     y = (r*h_row) + (y_frac*h_row);
@@ -300,7 +309,7 @@ void Layer::update_3(bool signal) {
     
     // If new onset, new rect
     if ((signal) && (!dying)) {
-        vector<float> rect = {0., 0., (float)ofGetWidth(), (float)ofGetHeight()};
+        vector<float> rect = {0., 0., widthScreen, heightScreen};
         myRects_3.push_back(rect);
     }
     
@@ -319,8 +328,8 @@ void Layer::update_3(bool signal) {
         myRects_3[i][3] *= shrink_scale;
 
         // Calculate x, y upperleft
-        myRects_3[i][0] = (ofGetWidth() / 2.)  - (myRects_3[i][2] / 2.);
-        myRects_3[i][1] = (ofGetHeight() / 2.) - (myRects_3[i][3] / 2.);
+        myRects_3[i][0] = (widthScreen / 2.)  - (myRects_3[i][2] / 2.);
+        myRects_3[i][1] = (heightScreen / 2.) - (myRects_3[i][3] / 2.);
     }
     
     // Erase rectangles that became too small
@@ -336,8 +345,8 @@ void Layer::update_3(bool signal) {
 }
 
 void Layer::draw_3() {
-    float w_col = ofGetWidth() / nCols;
-    float h_row = ofGetHeight() / nRows;
+    float w_col = widthScreen / nCols;
+    float h_row = heightScreen / nRows;
     
     // No fill and red color
     ofNoFill();
@@ -350,10 +359,11 @@ void Layer::draw_3() {
                 // Check what percentage the width of the rect is
 //                float p =  myRects_3[i][2] / ofGetWidth();
                 ofSetLineWidth(1);
-                float x_frac = myRects_3[i][0] / ofGetWidth();
-                float y_frac = myRects_3[i][1] / ofGetHeight();
-                float w_frac = myRects_3[i][2] / ofGetWidth();
-                float h_frac = myRects_3[i][3] / ofGetHeight();
+                float x_frac = myRects_3[i][0] / widthScreen;
+                float y_frac = myRects_3[i][1] / heightScreen;
+                float w_frac = myRects_3[i][2] / widthScreen;
+                float h_frac = myRects_3[i][3] / heightScreen
+                ;
                 float x = (c*w_col) + (x_frac*w_col);
                 float y = (r*h_row) + (y_frac*h_row);
                 float w = w_col * w_frac;
@@ -374,9 +384,9 @@ void Layer::setup_layer_4() {
     }
     
     if (vertical_4) {
-        length_4 = ofRandom(100, ofGetHeight()/2.);
+        length_4 = ofRandom(100, heightScreen/2.);
     } else {
-        length_4 = ofRandom(100, ofGetWidth()/2.);
+        length_4 = ofRandom(100, widthScreen/2.);
     }
     
     num_lanes_4 = (int)ofRandom(20,40);
@@ -400,11 +410,11 @@ void Layer::update_4(bool signal) {
         positions_4[i] += 10;
         
         if(vertical_4) {
-            if(positions_4[i] > ofGetHeight() + length_4) {
+            if(positions_4[i] > heightScreen + length_4) {
                 erase_vec.push_back(i);
             }
         } else {
-            if(positions_4[i] > ofGetWidth() + length_4) {
+            if(positions_4[i] > widthScreen + length_4) {
                 erase_vec.push_back(i);
             }
         }
@@ -432,9 +442,9 @@ void Layer::draw_4() {
     
     float relevant_side;
     if (vertical_4) {
-        relevant_side = ofGetHeight();
+        relevant_side = heightScreen;
     } else {
-        relevant_side = ofGetWidth();
+        relevant_side = widthScreen;
     }
     
     float side = relevant_side / num_lanes_4;

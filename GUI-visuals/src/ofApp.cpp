@@ -4,16 +4,23 @@
 int MIC_IN = 0;
 int SOUND_FLOWER_IN_OUT = 2;
 int HK_OUT = 0;
+int HEADPHONES_OUT = 7;
 int BUILTIN_OUT = 1;
+
+//float FBO_W = 600.;
+//float FBO_H = 600.;
 
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 // MAIN LOOP FUNCTIONS
 //--------------------------------------------------------------
 void ofApp::setup(){
-    mode = MIC_SPEAKER; // available modes MIC_SPEAKER, SOUNDCARD_SPEAKER
+    mode = SOUNDCARD_SPEAKER; // available modes MIC_SPEAKER, SOUNDCARD_SPEAKER
     setup_VIS();
     setup_GUI_SOUND();
+    
+    fboVisWidth = ofGetWidth();
+    fboVisHeight = ofGetHeight();
     
     // To handle the onset & beat signals
     // (don't remove the signals before having
@@ -24,11 +31,19 @@ void ofApp::setup(){
     drawnOnsetGUI = false;
     drawnBeatVIS = false;
     drawnBeatGUI = false;
+    
+    fboVis.allocate(ofGetWidth(), ofGetHeight(), GL_RGBA);
+    
+    backgroundLayer = false;
+    backgroundColor = ofColor(0, 0, 0);
 }
 
 void ofApp::update(){
     update_VIS();
     update_GUI_SOUND();
+    
+    fboVisWidth = ofGetWidth();
+    fboVisHeight = ofGetHeight();
     
     beat_ofx.update(ofGetElapsedTimeMillis());
     
@@ -43,7 +58,51 @@ void ofApp::update(){
 
 // This only calls draw VIS because draw GUI is triggered by events by drawing
 void ofApp::draw(){
+    ofBackground(0);
+    fboVis.begin();
+    
     draw_VIS();
+    ofClearAlpha(); // just to be sure?
+    fboVis.end();
+//    fboVis.draw(ofGetWidth()-fboVisWidth-50, (ofGetHeight()/2)-(fboVisHeight/2));
+
+    fboVis.draw((ofGetWidth()/2)-(fboVisWidth/2), (ofGetHeight()/2)-(fboVisHeight/2));
+}
+
+void ofApp::drawPlots() {
+    // PART 2
+    // 1 GET DATA TO DRAW (make a snapshot of the current buffer)
+    // Freeze the sound buffer into a draw buffer (happens in a different thread)
+    soundMutex.lock();
+    drawBuffer = middleBuffer;
+    drawBins = middleBins;
+    soundMutex.unlock();
+    
+    // 2 PREPARE FOR DRAW
+    ofSetColor(255);
+    ofPushMatrix();
+    
+    // 3 DRAW TIME DOMAIN
+    ofTranslate(16, 16+250);
+//    ofDrawBitmapString("Time Domain", 0, 0);
+    plot(drawBuffer, plotHeight / 2, 0);
+    
+    // 4 DRAW FREQUENCY DOMAIN
+    ofTranslate(0, plotHeight + 16);
+//    ofDrawBitmapString("Frequency Domain", 0, 0);
+    plot(drawBins, -plotHeight, plotHeight / 2);
+    
+    // 5 DRAW THE SPECTOGRAM
+    ofTranslate(0, plotHeight + 16);
+//    ofDrawBitmapString("Spectrogram", 0, 0);
+    // should be called after you have changed the image' pixel,
+    // to reflect the change in the texture to be drawn
+    spectrogram.update();
+    spectrogram.draw(0, 0);
+//    ofDrawRectangle(0, 0, bufferSize, bufferSize / 2);
+    
+    // 6 END DRAW
+    ofPopMatrix(); // go back to normal coordinate system
 }
 
 //--------------------------------------------------------------
@@ -93,19 +152,19 @@ void ofApp::update_VIS(){
         } else {
             switch (signalType) {
               case 0:
-                allLayers[i].update(gotOnset);
+                allLayers[i].update(gotOnset, fboVisWidth, fboVisHeight);
                 break;
               case 1:
-                allLayers[i].update(gotBeat);
+                allLayers[i].update(gotBeat, fboVisWidth, fboVisHeight);
                 break;
               case 2:
-                allLayers[i].update(gotSnare);
+                allLayers[i].update(gotSnare, fboVisWidth, fboVisHeight);
                 break;
               case 3:
-                allLayers[i].update(gotKick);
+                allLayers[i].update(gotKick, fboVisWidth, fboVisHeight);
                 break;
               case 4:
-                allLayers[i].update(gotHihat);
+                allLayers[i].update(gotHihat, fboVisWidth, fboVisHeight);
                 break;
             }
         }
@@ -128,10 +187,10 @@ void ofApp::drawLayerTypeX(int X) {
 
 void ofApp::draw_VIS() {
 //    cout << "VIS DRAW" << endl;
-    ofBackground(0, 0, 0);
+    ofBackground(backgroundColor);
     
-    ofSetColor(ofColor::blue);
-    ofFill();
+//    ofSetColor(ofColor::blue);
+//    ofFill();
     
 //    drawLayerTypeX(1);
 //    drawLayerTypeX(2);
@@ -159,13 +218,24 @@ void ofApp::setup_VIS(){
 //--------------------------------------------------------------
 void ofApp::addLayerButtonPressed(){
     Layer newLayer;
-    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black); // 0 for onset, 1 for beat
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black, fboVisWidth, fboVisHeight); // 0 for onset, 1 for beat
     allLayers.push_back(newLayer);
+}
+
+void ofApp::rBackgroundButtonPressed() {
+    if (!backgroundLayer) {
+        cout << "test" << endl;
+        backgroundLayer = true;
+        backgroundColor = ofColor(ofRandom(255), ofRandom(255), ofRandom(255));
+    } else {
+        backgroundLayer = false;
+        backgroundColor = ofColor(0, 0, 0);
+    }
 }
 
 void ofApp::addLayerFrontButtonPressed(){
     Layer newLayer;
-    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black); // 0 for onset, 1 for beat
+    newLayer.setup(layerType, nCols, nRows, signalType, blendModeOn, Subtract, Black, fboVisWidth, fboVisHeight); // 0 for onset, 1 for beat
     allLayers.insert(allLayers.begin(), newLayer);
 }
 
@@ -248,12 +318,13 @@ void ofApp::setup_GUI_SOUND() {
          soundStream.setup(this, 0, 1, 44100, 512, 4); // two channel microphone in
     } else {
          soundStream.setDeviceID(SOUND_FLOWER_IN_OUT); // sound flower
+         soundStream.setInput(this);
          soundStream.setup(this, 0, 2, 44100, 512, 4); // two or 1 channel in from soundcard via soundflower
     }
     soundStream.setInput(this);
 
     // Output stream (to speakers)
-    outputStream.setDeviceID(BUILTIN_OUT); // HK output or BUILTIN_OUT
+    outputStream.setDeviceID(BUILTIN_OUT); // HK output or BUILTIN_OUT HEADPHONES_OUT
     outputStream.setup(this, 2, 0, 44100, 512, 4);
     outputStream.setOutput(this);
 
@@ -291,9 +362,12 @@ void ofApp::setup_GUI_SOUND() {
     deleteAllLayersButton.addListener(this, &ofApp::deleteAllLayersButtonPressed);
     deleteFirstButton.addListener(this, &ofApp::deleteFirstButtonPressed);
     deleteLastButton.addListener(this, &ofApp::deleteLastButtonPressed);
+    rBackgroundButton.addListener(this, &ofApp::rBackgroundButtonPressed);
+    
     visGui.add(addLayerButton.setup("Add layer"));
     visGui.add(addLayerFrontButton.setup("Add layer in front"));
     visGui.add(deleteAllLayersButton.setup("Delete all layers"));
+    
     
     visGui.add(deleteFirstButton.setup("Delete from front"));
     visGui.add(deleteLastButton.setup("Delete from back"));
@@ -305,11 +379,12 @@ void ofApp::setup_GUI_SOUND() {
     visGui.add(onsetSignalType.set("Signal type onset", true));
     visGui.add(beatSignalType.set("Signal type beat", false));
     
-    
     visGui.add(beatKickSignalType.set("Signal type kick", false));
     visGui.add(beatHihatSignalType.set("Signal type hihat", false));
     visGui.add(beatSnareSignalType.set("Signal type snare", false));
     
+    visGui.add(rBackgroundButton.setup("Turn background on or off"));
+        
     visGui.add(blendModeOn.set("BlendMode on", false));
     visGui.add(Subtract.set("Subtract on", false));
     visGui.add(Black.set("Black", false));
@@ -390,7 +465,7 @@ void ofApp::handleSelectedParams() {
 void ofApp::plot(vector<float>& buffer, float scale, float offset) {
     ofNoFill();
     int n = buffer.size();
-    ofDrawRectangle(0, 0, n, plotHeight);
+//    ofDrawRectangle(0, 0, n, plotHeight);
     glPushMatrix();
     glTranslatef(0, plotHeight / 2 + offset, 0);
     ofBeginShape();
@@ -461,48 +536,16 @@ void ofApp::draw_GUI_SOUND(ofEventArgs & args){
     beatGui.draw();
     onsetGui.draw();
 
-    ofSetColor(ofColor::orange);
-    ofSetLineWidth(3.);
-    bandsGui.draw();
-    bandPlot.clear();
-    for (int i = 0; i < bandPlot.size(); i++) {
-        bandPlot[i].y = 240 - 100 * bands.energies[i];
-    }
-    bandPlot.draw();
+//    ofSetColor(ofColor::orange);
+//    ofSetLineWidth(3.);
+//    bandsGui.draw();
+//    bandPlot.clear();
+//    for (int i = 0; i < bandPlot.size(); i++) {
+//        bandPlot[i].y = 240 - 100 * bands.energies[i];
+//    }
+//    bandPlot.draw();
     
-    // PART 2
-    // 1 GET DATA TO DRAW (make a snapshot of the current buffer)
-    // Freeze the sound buffer into a draw buffer (happens in a different thread)
-    soundMutex.lock();
-    drawBuffer = middleBuffer;
-    drawBins = middleBins;
-    soundMutex.unlock();
-    
-    // 2 PREPARE FOR DRAW
-    ofSetColor(255);
-    ofPushMatrix();
-    
-    // 3 DRAW TIME DOMAIN
-    ofTranslate(16, 16+250);
-    ofDrawBitmapString("Time Domain", 0, 0);
-    plot(drawBuffer, plotHeight / 2, 0);
-    
-    // 4 DRAW FREQUENCY DOMAIN
-    ofTranslate(0, plotHeight + 16);
-    ofDrawBitmapString("Frequency Domain", 0, 0);
-    plot(drawBins, -plotHeight, plotHeight / 2);
-    
-    // 5 DRAW THE SPECTOGRAM
-    ofTranslate(0, plotHeight + 16);
-    ofDrawBitmapString("Spectrogram", 0, 0);
-    // should be called after you have changed the image' pixel,
-    // to reflect the change in the texture to be drawn
-    spectrogram.update();
-    spectrogram.draw(0, 0);
-    ofDrawRectangle(0, 0, bufferSize, bufferSize / 2);
-    
-    // 6 END DRAW
-    ofPopMatrix(); // go back to normal coordinate system
+    drawPlots();
     
     // 7 PRINT THE FRAME RATE
     string msg = ofToString((int) ofGetFrameRate()) + " fps";
